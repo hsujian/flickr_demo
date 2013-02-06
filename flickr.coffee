@@ -3,10 +3,10 @@
 Pool = require('generic-pool').Pool
 line_reader = require 'line-reader'
 fs = require 'fs'
-wget = require 'wget'
 
 places_file = './data/places.json'
 photos_file = './data/photos.json'
+photo_list_file = './data/photo.txt'
 
 throw new Error 'unset FLICKR_API_KEY' unless process.env.FLICKR_API_KEY
 throw new Error 'unset FLICKR_API_SECRET' unless process.env.FLICKR_API_SECRET
@@ -21,12 +21,38 @@ pool = Pool
   destroy: (client) ->
   max: 1
   idleTimeoutMillis : 30000
+
+wget_pool = Pool
+  name: 'wget'
+  create: (cb) ->
+    wget = require 'wget'
+    cb null, wget
+  destroy: (client) ->
+  max: 4
+  idleTimeoutMillis : 30000
   log : true
 
-get_image = (logo, id)->
-  img = wget.download logo, "logo/#{id}.jpg"
-  img.on 'error', (err) ->
-    console.log err
+get_image_path = (id) ->
+  id = +id
+  la = parseInt(id/100000000)
+  other = parseInt(id%100000000)
+  lb = parseInt(other/10000)
+  "data/image/#{la}/#{lb}"
+prepare_image_path = (id) ->
+  img_path = get_image_path id
+  fs.mkdirSync img_path
+  return img_path
+
+get_image = (url, id) ->
+  wget_pool.acquire (err, wget) ->
+    throw new Error err if err
+    img_path = prepare_image_path id
+    img = wget.download url, "#{img_path}/#{id}.jpg"
+    img.on 'error', (err) ->
+      console.log err
+    img.on 'end', ->
+      wget_pool.release wget
+  on
 
 parse_places = (res, cb) ->
   return false unless res.stat == 'ok'
@@ -49,7 +75,7 @@ get_places = (location, cb) ->
 
 parse_photos = (res, cb) ->
   return false unless res.stat == 'ok'
-  return unless res.total
+  return unless res.photos.total
   for photo in res.photos.photo
     cb photo
   on
@@ -104,11 +130,9 @@ load_photos = (places, cb)->
       search_photos p, (p, photos_info) ->
         console.log "#{p.woeid} ok"
         photos[p.woeid] = photos_info
-        if pool.waitingClientsCount() < 1
-          fs.writeFile photos_file, JSON.stringify(photos, null, '\t'), ->
+        fs.writeFile photos_file, JSON.stringify(photos, null, '\t'), ->
+          if pool.waitingClientsCount() < 1
             cb(photos)
-        else
-          fs.writeFile photos_file, JSON.stringify(photos, null, '\t')
   if pool.waitingClientsCount() < 1
     cb photos
   on
@@ -117,3 +141,11 @@ load_places (places) ->
   console.log 'get places done'
   load_photos places, (photos) ->
     console.log 'search photos done'
+    for woeid, info of photos
+      parse_photos info, (photo) ->
+        url = get_photo_url photo
+        console.log url
+        return unless url
+        line = "#{photo.id} #{url}\n"
+        fs.appendFileSync photo_list_file, line
+    off

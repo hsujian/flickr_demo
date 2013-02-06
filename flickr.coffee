@@ -40,15 +40,17 @@ get_image_path = (id) ->
   "data/image/#{la}/#{lb}"
 
 prepare_image_path = (id) ->
+  mkdirp = require 'mkdirp'
   img_path = get_image_path id
-  fs.mkdirSync img_path
+  mkdirp.sync img_path
   return img_path
 
 wget_image = (url, id) ->
-  img_path = prepare_image_path id
+  img_path = get_image_path id
   img_filename = "#{img_path}/#{id}.jpg"
   if fs.existsSync img_filename
     return off
+  prepare_image_path id
   wget_pool.acquire (err, wget) ->
     throw new Error err if err
     img = wget.download url, img_filename

@@ -1,0 +1,15 @@
+{
+  "name": "flickr_demo",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "source .env && coffee flickr"
+  },
+  "dependencies": {
+    "coffee-script": "*",
+    "wget": "0.0.1",
+    "flickr": "~0.1.0",
+    "line-reader": "~0.2.3",
+    "generic-pool": "~2.0.3"
+  }
+}

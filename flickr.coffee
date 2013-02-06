@@ -38,16 +38,20 @@ get_image_path = (id) ->
   other = parseInt(id%100000000)
   lb = parseInt(other/10000)
   "data/image/#{la}/#{lb}"
+
 prepare_image_path = (id) ->
   img_path = get_image_path id
   fs.mkdirSync img_path
   return img_path
 
-get_image = (url, id) ->
+wget_image = (url, id) ->
+  img_path = prepare_image_path id
+  img_filename = "#{img_path}/#{id}.jpg"
+  if fs.existsSync img_filename
+    return off
   wget_pool.acquire (err, wget) ->
     throw new Error err if err
-    img_path = prepare_image_path id
-    img = wget.download url, "#{img_path}/#{id}.jpg"
+    img = wget.download url, img_filename
     img.on 'error', (err) ->
       console.log err
     img.on 'end', ->
@@ -144,8 +148,8 @@ load_places (places) ->
     for woeid, info of photos
       parse_photos info, (photo) ->
         url = get_photo_url photo
-        console.log url
         return unless url
         line = "#{photo.id} #{url}\n"
         fs.appendFileSync photo_list_file, line
+        wget_image url, photo.id
     off

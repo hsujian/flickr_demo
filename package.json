@@ -10,6 +10,7 @@
     "wget": "0.0.1",
     "flickr": "~0.1.0",
     "line-reader": "~0.2.3",
-    "generic-pool": "~2.0.3"
+    "generic-pool": "~2.0.3",
+    "mkdirp": "~0.3.4"
   }
 }

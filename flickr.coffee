@@ -45,6 +45,15 @@ prepare_image_path = (id) ->
   mkdirp.sync img_path
   return img_path
 
+adjust_image_url = (url) ->
+  idx = url.indexOf '_b.jpg'
+  if idx > 0
+    return url.substr(0, idx) + '.jpg'
+  idx = url.indexOf '_o.jpg'
+  if idx > 0
+    return url.substr(0, idx) + '.jpg'
+  return off
+
 wget_image = (url, id) ->
   img_path = get_image_path id
   img_filename = "#{img_path}/#{id}.jpg"
@@ -55,7 +64,9 @@ wget_image = (url, id) ->
     throw new Error err if err
     img = wget.download url, img_filename
     img.on 'error', (err) ->
-      console.log err
+      console.log "wget_image error #{err}"
+      url = adjust_image_url url
+      wget_image url, id if url
     img.on 'end', ->
       wget_pool.release wget
   on
@@ -82,7 +93,7 @@ get_places = (location, cb) ->
 parse_photos = (res, cb) ->
   return false unless res.stat == 'ok'
   return unless res.photos.total
-  for photo in res.photos.photo
+  for photo in res.photos.photo[0...100]
     cb photo
   on
 search_photos = (place, cb) ->
@@ -105,8 +116,8 @@ get_photo_url = (photo) ->
   domain = "farm#{photo.farm}.staticflickr.com"
   prefix = "http://#{domain}/#{photo.server}/#{photo.id}_"
   if photo.originalsecret
-    return "#{prefix}_#{photo.originalsecret}_o.#{photo.originalformat}"
-  "#{prefix}_#{photo.secret}_b.jpg"
+    return "#{prefix}#{photo.originalsecret}_o.#{photo.originalformat}"
+  "#{prefix}#{photo.secret}_b.jpg"
 
 load_places = (cb)->
   if fs.existsSync places_file
@@ -151,7 +162,7 @@ load_places (places) ->
       parse_photos info, (photo) ->
         url = get_photo_url photo
         return unless url
-        line = "#{photo.id} #{url}\n"
+        line = "#{photo.id},#{url}\n"
         fs.appendFileSync photo_list_file, line
-        wget_image url, photo.id
+        #wget_image url, photo.id
     off
